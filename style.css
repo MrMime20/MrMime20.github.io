@@ -30,7 +30,7 @@ body {
 .batting-now { border-color: var(--text-accent) !important; box-shadow: 0 0 20px var(--text-accent); animation: pulse 2s infinite ease-in-out; }
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
-/* --- Navigation --- */
+/* --- Navigation & Sharing --- */
 .theme-toggle, .share-toggle, .timer-container {
     position: absolute; top: 20px;
     background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
@@ -40,7 +40,28 @@ body {
 }
 .theme-toggle, .share-toggle { width: 60px; border-radius: 50%; }
 .theme-toggle { right: 20px; }
-.share-toggle { left: 20px; }
+.share-toggle { left: 0; position: relative; } /* Adjusted for wrapper */
+.share-wrapper { position: absolute; top: 20px; left: 20px; z-index: 110; }
+
+.share-menu {
+    position: absolute; top: 70px; left: 0;
+    width: 200px; padding: 10px;
+    display: none; flex-direction: column; gap: 5px;
+    transform-origin: top left;
+    animation: menuFade 0.2s ease-out;
+}
+.share-menu.active { display: flex; }
+.share-menu button {
+    font-size: 14px; text-align: left; padding: 12px; border-radius: 8px;
+    background: rgba(255,255,255,0.05); text-transform: none; font-family: sans-serif;
+}
+.share-menu button:active { background: var(--text-accent); color: black; }
+
+@keyframes menuFade {
+    from { opacity: 0; transform: scale(0.9) translateY(-10px); }
+    to { opacity: 1; transform: scale(1) translateY(0); }
+}
+
 .timer-container { left: 50%; transform: translateX(-50%); padding: 0 20px; gap: 10px; font-size: 1.1rem; min-width: 140px; }
 .theme-toggle svg, .share-toggle svg, .timer-container svg { width: 28px; height: 28px; }
 .theme-toggle:active, .share-toggle:active { transform: scale(0.95); }
