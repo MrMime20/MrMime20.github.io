@@ -65,18 +65,28 @@ function updateScore(team, val) {
 function morphNumber(team, newVal) {
     const blurNode = document.getElementById(`blur-${team}`);
     const zone = document.querySelector(`.${team}-filter`);
+    if (!blurNode || !zone) return;
+
     const oldScores = zone.querySelectorAll('.score-display');
     oldScores.forEach((el, index) => { if (index < oldScores.length - 1) el.remove(); });
-    const oldDisplay = zone.querySelector('.score-display');
+    
+    const oldDisplay = Array.from(oldScores).pop();
     animateBlur(blurNode, 0, 10, 400);
+    
     const newDisplay = document.createElement('div');
     newDisplay.className = 'score-display enter';
+    newDisplay.id = `${team}-score`; // Maintain ID for render function
     newDisplay.innerText = newVal;
     zone.appendChild(newDisplay);
+    
     setTimeout(() => {
-        if (oldDisplay) oldDisplay.classList.add('exit');
+        if (oldDisplay) {
+            oldDisplay.classList.add('exit');
+            oldDisplay.removeAttribute('id'); // Remove ID so only one exists
+        }
         newDisplay.classList.remove('enter');
     }, 50);
+    
     setTimeout(() => { animateBlur(blurNode, 10, 0, 500); }, 450);
     setTimeout(() => { if (oldDisplay) oldDisplay.remove(); }, 1100);
 }
@@ -124,6 +134,7 @@ function addOut() {
 
 function sequentialReset() {
     const dots = document.querySelectorAll('.dot');
+    if (dots.length < 3) return;
     setTimeout(() => { dots[2].classList.remove('active'); }, 0);
     setTimeout(() => { dots[1].classList.remove('active'); }, 200);
     setTimeout(() => { 
@@ -154,13 +165,19 @@ function changeInning(dir) {
 function updateUI(shouldAnimate = false) {
     const inningText = document.getElementById('inning-text');
     const render = () => {
-        // Fixed bug by correctly selecting target elements
-        document.getElementById('inning-num').innerText = game.inning;
-        document.getElementById('inning-half').innerText = game.top ? 'TOP' : 'BOTTOM';
-        document.getElementById('away-card').classList.toggle('batting-now', game.top);
-        document.getElementById('home-card').classList.toggle('batting-now', !game.top);
-        document.getElementById('away-score').innerText = game.away;
-        document.getElementById('home-score').innerText = game.home;
+        const inNum = document.getElementById('inning-num');
+        const inHalf = document.getElementById('inning-half');
+        const awayC = document.getElementById('away-card');
+        const homeC = document.getElementById('home-card');
+        const awayS = document.getElementById('away-score');
+        const homeS = document.getElementById('home-score');
+
+        if (inNum) inNum.innerText = game.inning;
+        if (inHalf) inHalf.innerText = game.top ? 'TOP' : 'BOTTOM';
+        if (awayC) awayC.classList.toggle('batting-now', game.top);
+        if (homeC) homeC.classList.toggle('batting-now', !game.top);
+        if (awayS) awayS.innerText = game.away;
+        if (homeS) homeS.innerText = game.home;
         
         if (!isClearing) {
             document.querySelectorAll('.dot').forEach((d, i) => {
@@ -168,7 +185,8 @@ function updateUI(shouldAnimate = false) {
             });
         }
     };
-    if (shouldAnimate) {
+
+    if (shouldAnimate && inningText) {
         inningText.classList.add('slide-out');
         setTimeout(() => {
             render();
@@ -179,7 +197,7 @@ function updateUI(shouldAnimate = false) {
     } else { render(); }
 }
 
-// Timer Logic with LocalStorage Time Calculation
+// Timer Logic
 function toggleTimer() {
     if (timer.running) {
         timer.baseSeconds += Math.floor((Date.now() - timer.startTime) / 1000);
@@ -212,12 +230,15 @@ function updateTimerDisplay() {
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
     const pad = (n) => n.toString().padStart(2, '0');
-    document.getElementById('timer-display').innerText = `${pad(h)}:${pad(m)}:${pad(s)}`;
+    const display = document.getElementById('timer-display');
+    if (display) display.innerText = `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
 // Drawer & Team Names
 function toggleDrawer(open) {
-    document.getElementById('drawer-overlay').classList.toggle('active', open);
+    const drawer = document.getElementById('drawer-overlay');
+    if (!drawer) return;
+    drawer.classList.toggle('active', open);
     if(open) {
         document.getElementById('edit-away').value = localStorage.getItem('team_away') || "";
         document.getElementById('edit-home').value = localStorage.getItem('team_home') || "";
@@ -226,7 +247,7 @@ function toggleDrawer(open) {
 
 function updateTeamName(team, name) {
     const label = document.getElementById(`${team}-label`);
-    label.innerText = name.trim() === "" ? (team === 'away' ? 'AWAY' : 'HOME') : name.toUpperCase();
+    if (label) label.innerText = name.trim() === "" ? (team === 'away' ? 'AWAY' : 'HOME') : name.toUpperCase();
     localStorage.setItem(`team_${team}`, name);
 }
 
@@ -294,6 +315,7 @@ function addHitLog() {
 
 function renderLog() {
     const container = document.getElementById('hit-log-container');
+    if (!container) return;
     if (gameLog.length === 0) {
         container.innerHTML = '<div class="log-empty">No plays recorded.</div>';
         return;
@@ -306,16 +328,12 @@ function renderLog() {
     `).join('');
 }
 
-// --- SHARING & ANNOUNCER RECAP FUNCTIONALITY ---
-
+// Sharing functions
 function toggleShareMenu(event) {
     event.stopPropagation();
-    document.getElementById('share-menu').classList.toggle('active');
+    const menu = document.getElementById('share-menu');
+    if (menu) menu.classList.toggle('active');
 }
-
-document.addEventListener('click', () => {
-    document.getElementById('share-menu').classList.remove('active');
-});
 
 function shareTo(platform) {
     const h = document.getElementById("home-label").textContent;
@@ -323,30 +341,21 @@ function shareTo(platform) {
     const scoreText = `Current Score: ${a} ${game.away}, ${h} ${game.home} (${game.top ? 'Top' : 'Bottom'} ${game.inning})`;
     
     switch(platform) {
-        case 'text':
-            window.location.href = `sms:?&body=${encodeURIComponent(scoreText)}`;
-            break;
-        case 'email':
-            window.location.href = `mailto:?subject=Baseball Game Update&body=${encodeURIComponent(scoreText)}`;
-            break;
-        case 'copyLink':
-            copyToClipboard(window.location.href, "Link Copied!");
-            break;
-        case 'copyGameRecap':
-            copyToClipboard(generateGameRecap(), "Full Recap Copied!");
-            break;
-        case 'generateSimpleRecap':
-            copyToClipboard(scoreText, "Score Copied!");
-            break;
+        case 'text': window.location.href = `sms:?&body=${encodeURIComponent(scoreText)}`; break;
+        case 'email': window.location.href = `mailto:?subject=Baseball Update&body=${encodeURIComponent(scoreText)}`; break;
+        case 'copyLink': copyToClipboard(window.location.href, "Link Copied!"); break;
+        case 'copyGameRecap': copyToClipboard(generateGameRecap(), "Full Recap Copied!"); break;
+        case 'generateSimpleRecap': copyToClipboard(scoreText, "Score Copied!"); break;
     }
 }
 
 function copyToClipboard(text, message) {
     navigator.clipboard.writeText(text).then(() => {
         const btn = document.querySelector('.share-toggle');
-        const originalContent = btn.innerHTML;
-        btn.innerHTML = `<span style="font-size:10px; font-family:sans-serif">COPIED!</span>`;
-        setTimeout(() => { btn.innerHTML = originalContent; }, 2000);
+        if (!btn) return;
+        const original = btn.innerHTML;
+        btn.innerHTML = `<span style="font-size:10px;">COPIED!</span>`;
+        setTimeout(() => { btn.innerHTML = original; }, 2000);
     });
 }
 
@@ -356,139 +365,28 @@ function getInningSuffix(n) {
 }
 
 function generateGameRecap() {
-    let recap = "";
     let homeTeamName = document.getElementById("home-label").textContent;
     let awayTeamName = document.getElementById("away-label").textContent;
-    let runDifferential = Math.abs(game.home - game.away);
-    let winningTeam, losingTeam, winningScore, losingScore;
-
-    if (game.home > game.away) {
-        winningTeam = homeTeamName;
-        losingTeam = awayTeamName;
-        winningScore = game.home;
-        losingScore = game.away;
-    } else if (game.away > game.home) {
-        winningTeam = awayTeamName;
-        losingTeam = homeTeamName;
-        winningScore = game.away;
-        losingScore = game.home;
-    } else {
-        const tieOutcomes = [
-            `Folks, we've got ourselves a deadlock. ${homeTeamName} and ${awayTeamName} are tied at ${game.home} runs apiece. It's anyone's game at this point.`,
-            `This one's a real seesaw battle! ${homeTeamName} and ${awayTeamName} are knotted up at ${game.home} runs.`,
-            `It's all square here. ${homeTeamName} and ${awayTeamName} are even at ${game.home} runs. What a contest!`
-        ];
-        recap = tieOutcomes[Math.floor(Math.random() * tieOutcomes.length)];
-
-        let inningDescription;
-        switch (game.outs) {
-            case 0:
-                inningDescription = `We're now in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, and the inning's just getting started with no outs.`;
-                break;
-            case 1:
-                inningDescription = `There's one out gone in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
-                break;
-            case 2:
-                inningDescription = `Two down, one to go in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
-                break;
-            default:
-                inningDescription = `And that's the side retired! Time for a change.`;
-        }
-        recap += " " + inningDescription;
-        return recap;
-    }
-
-    let scoreDescription;
-    switch (runDifferential) {
-        case 1:
-            const oneRunOutcomes = [
-                `Talk about a close one! The ${winningTeam} are squeaking by the ${losingTeam} by just a run.`,
-                `It's a nail-biter! The ${winningTeam} are clinging to a one-run lead over the ${losingTeam}.`,
-                `Just a sliver of daylight! The ${winningTeam} lead the ${losingTeam} by a single run.`
-            ];
-            scoreDescription = oneRunOutcomes[Math.floor(Math.random() * oneRunOutcomes.length)];
-            break;
-        case 2:
-            const twoRunOutcomes = [
-                `The ${winningTeam} are holding a slight advantage, up by a couple of runs.`,
-                `A two-run cushion for the ${winningTeam} as they lead the ${losingTeam}.`,
-                `The ${winningTeam} are up by two, but this game is far from over.`
-            ];
-            scoreDescription = twoRunOutcomes[Math.floor(Math.random() * twoRunOutcomes.length)];
-            break;
-        case 3:
-            const threeRunOutcomes = [
-                `The ${winningTeam} have a bit of breathing room, leading by three.`,
-                `A three-run lead for the ${winningTeam}, but they can't afford to relax just yet.`,
-                `The ${winningTeam} are up by three, putting some distance between themselves and the ${losingTeam}.`
-            ];
-            scoreDescription = threeRunOutcomes[Math.floor(Math.random() * threeRunOutcomes.length)];
-            break;
-        case 4:
-            const fourRunOutcomes = [
-                `The ${winningTeam} are starting to pull away, leading by four runs.`,
-                `A solid four-run advantage for the ${winningTeam}, they're in control.`,
-                `The ${winningTeam} are extending their lead, now up by four runs.`
-            ];
-            scoreDescription = fourRunOutcomes[Math.floor(Math.random() * fourRunOutcomes.length)];
-            break;
-        default:
-            const blowoutOutcomes = [
-                `And it's a blowout! The ${winningTeam} are dominating, leading the ${losingTeam} by a whopping ${runDifferential} runs.`,
-                `This one's getting out of hand! The ${winningTeam} are crushing the ${losingTeam} by ${runDifferential} runs.`,
-                `It's a lopsided affair! The ${winningTeam} have a commanding ${runDifferential}-run lead.`,
-                `No contest here! The ${winningTeam} are absolutely dismantling the ${losingTeam} by ${runDifferential} runs.`
-            ];
-            scoreDescription = blowoutOutcomes[Math.floor(Math.random() * blowoutOutcomes.length)];
-    }
-    recap += `${scoreDescription} The scoreboard shows ${winningScore} to ${losingScore}, ${winningTeam} in the driver's seat.\n`;
-
-    const filteredHitLogs = gameLog.map(l => l.text).filter(text => text.trim().length > 0);
-    if (filteredHitLogs.length > 0) {
-        let playHighlights;
-        switch (filteredHitLogs.length) {
-            case 1:
-                playHighlights = `We did see one noteworthy hit:`;
-                break;
-            case 2:
-                playHighlights = `A couple of key moments to mention:`;
-                break;
-            default:
-                playHighlights = `Alright, let's recap some of the action:`;
-        }
-        recap += "\n" + playHighlights + '\n';
-        recap += filteredHitLogs.slice(0, 5).join('\n') + '\n';
-    } else {
-        recap += "\nThings have been pretty quiet, not much to write home about so far.\n";
-    }
-
-    let finalInningDescription;
-    switch (game.outs) {
-        case 0:
-            finalInningDescription = `We're now in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, and the inning's just getting started.`;
-            break;
-        case 1:
-            finalInningDescription = `That's one gone in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
-            break;
-        case 2:
-            finalInningDescription = `Two down, one to go in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
-            break;
-        default:
-            finalInningDescription = `And that's the side retired! Time for a change.`;
-    }
-    recap += `\n${finalInningDescription}`;
-
+    let recap = `${awayTeamName} vs ${homeTeamName}\nScore: ${game.away} - ${game.home}\nInning: ${game.top ? 'Top' : 'Bottom'} ${game.inning}\n\nRecent Plays:\n`;
+    recap += gameLog.slice(0, 5).map(l => l.text).join('\n');
     return recap;
 }
 
-// Initialize Page
-applyTheme();
-updateUI();
-renderLog();
-updateTimerDisplay();
-if (timer.running) startInterval();
+// Initial Run after DOM is ready
+document.addEventListener('DOMContentLoaded', () => {
+    applyTheme();
+    updateUI();
+    renderLog();
+    updateTimerDisplay();
+    if (timer.running) startInterval();
 
-const savedAway = localStorage.getItem('team_away');
-const savedHome = localStorage.getItem('team_home');
-if (savedAway) updateTeamName('away', savedAway);
-if (savedHome) updateTeamName('home', savedHome);
+    const savedAway = localStorage.getItem('team_away');
+    const savedHome = localStorage.getItem('team_home');
+    if (savedAway) updateTeamName('away', savedAway);
+    if (savedHome) updateTeamName('home', savedHome);
+
+    document.addEventListener('click', () => {
+        const menu = document.getElementById('share-menu');
+        if (menu) menu.classList.remove('active');
+    });
+});
