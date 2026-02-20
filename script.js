@@ -256,20 +256,26 @@ document.addEventListener('click', () => {
 });
 
 function shareTo(platform) {
-    let shareContent = "";
+    const h = document.getElementById("home-label").textContent;
+    const a = document.getElementById("away-label").textContent;
+    const scoreText = `Current Score: ${a} ${game.away}, ${h} ${game.home} (${game.top ? 'Top' : 'Bottom'} ${game.inning})`;
+    
     switch(platform) {
+        case 'text':
+            window.location.href = `sms:?&body=${encodeURIComponent(scoreText)}`;
+            break;
+        case 'email':
+            window.location.href = `mailto:?subject=Baseball Game Update&body=${encodeURIComponent(scoreText)}`;
+            break;
+        case 'copyLink':
+            copyToClipboard(window.location.href, "Link Copied!");
+            break;
         case 'copyGameRecap':
-            shareContent = generateGameRecap();
-            copyToClipboard(shareContent, "Full Recap Copied!");
+            copyToClipboard(generateGameRecap(), "Full Recap Copied!");
             break;
         case 'generateSimpleRecap':
-            const h = document.getElementById("home-label").textContent;
-            const a = document.getElementById("away-label").textContent;
-            shareContent = `Current Score: ${a} ${game.away}, ${h} ${game.home} (${game.top ? 'Top' : 'Bottom'} ${game.inning})`;
-            copyToClipboard(shareContent, "Score Copied!");
+            copyToClipboard(scoreText, "Score Copied!");
             break;
-        default:
-            alert(`Sharing to ${platform} coming soon!`);
     }
 }
 
@@ -294,7 +300,6 @@ function generateGameRecap() {
     let runDifferential = Math.abs(game.home - game.away);
     let winningTeam, losingTeam, winningScore, losingScore;
 
-    // Determine winning/losing teams and handle ties
     if (game.home > game.away) {
         winningTeam = homeTeamName;
         losingTeam = awayTeamName;
@@ -331,7 +336,6 @@ function generateGameRecap() {
         return recap;
     }
 
-    // Varying descriptions of the score
     let scoreDescription;
     switch (runDifferential) {
         case 1:
@@ -377,85 +381,42 @@ function generateGameRecap() {
     }
     recap += `${scoreDescription} The scoreboard shows ${winningScore} to ${losingScore}, ${winningTeam} in the driver's seat.\n`;
 
-    // Varying descriptions of the hit log
     const filteredHitLogs = gameLog.map(l => l.text).filter(text => text.trim().length > 0);
     if (filteredHitLogs.length > 0) {
         let playHighlights;
         switch (filteredHitLogs.length) {
             case 1:
-                const oneHitOutcomes = [
-                    `We did see one noteworthy hit:`,
-                    `Just one key moment to report:`,
-                    `The highlight so far:`
-                ];
-                playHighlights = oneHitOutcomes[Math.floor(Math.random() * oneHitOutcomes.length)];
+                playHighlights = `We did see one noteworthy hit:`;
                 break;
             case 2:
-                const twoHitOutcomes = [
-                    `A couple of key moments to mention:`,
-                    `Two hits that stood out:`,
-                    `Here's a look at two significant hits:`
-                ];
-                playHighlights = twoHitOutcomes[Math.floor(Math.random() * twoHitOutcomes.length)];
+                playHighlights = `A couple of key moments to mention:`;
                 break;
             default:
-                const manyHitOutcomes = [
-                    `Alright, let's recap some of the action:`,
-                    `Let's take a look at the key hits:`,
-                    `Here's a rundown of the highlights:`
-                ];
-                playHighlights = manyHitOutcomes[Math.floor(Math.random() * manyHitOutcomes.length)];
+                playHighlights = `Alright, let's recap some of the action:`;
         }
         recap += "\n" + playHighlights + '\n';
         recap += filteredHitLogs.slice(0, 5).join('\n') + '\n';
     } else {
-        const quietOutcomes = [
-            `Things have been pretty quiet, not much to write home about so far.`,
-            `It's been a slow game, not a lot of action to report.`,
-            `A quiet affair so far, with minimal highlights.`
-        ];
-        recap += "\n" + quietOutcomes[Math.floor(Math.random() * quietOutcomes.length)] + "\n";
+        recap += "\nThings have been pretty quiet, not much to write home about so far.\n";
     }
 
-    // Varied inning and out descriptions
     let finalInningDescription;
     switch (game.outs) {
         case 0:
-            const noOutOutcomes = [
-                `We're now in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, and the inning's just getting started.`,
-                `The ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning is underway, and there are no outs.`,
-                `Fresh inning here, ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, with no outs on the board.`
-            ];
-            finalInningDescription = noOutOutcomes[Math.floor(Math.random() * noOutOutcomes.length)];
+            finalInningDescription = `We're now in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, and the inning's just getting started.`;
             break;
         case 1:
-            const oneOutOutcomes = [
-                `That's one gone in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
-                `One out recorded in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
-                `First out of the inning in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`
-            ];
-            finalInningDescription = oneOutOutcomes[Math.floor(Math.random() * oneOutOutcomes.length)];
+            finalInningDescription = `That's one gone in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
             break;
         case 2:
-            const twoOutOutcomes = [
-                `Two down, one to go in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
-                `Two outs now, in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
-                `We're down to the final out in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`
-            ];
-            finalInningDescription = twoOutOutcomes[Math.floor(Math.random() * twoOutOutcomes.length)];
+            finalInningDescription = `Two down, one to go in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
             break;
         default:
-            const threeOutOutcomes = [
-                `And that's the side retired! Time for a change.`,
-                `Three outs, and we're moving on to the next half-inning.`,
-                `That'll do it for the inning, three outs and a change of sides.`
-            ];
-            finalInningDescription = threeOutOutcomes[Math.floor(Math.random() * threeOutOutcomes.length)];
+            finalInningDescription = `And that's the side retired! Time for a change.`;
     }
     recap += `\n${finalInningDescription}`;
 
     return recap;
 }
 
-// Init
 updateUI();
