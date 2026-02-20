@@ -26,6 +26,7 @@ function cycleTheme() {
     root.style.setProperty('--btn-text', t.btnText);
 }
 
+// Score & UI Morphing Logic
 function updateScore(team, val) {
     const oldVal = game[team];
     const newVal = Math.max(0, game[team] + val);
@@ -67,15 +68,13 @@ function animateBlur(element, start, end, duration) {
     requestAnimationFrame(step);
 }
 
+// Inning & Out Logic
 function handleOutClick(e) {
     if (isClearing) return;
     const rect = e.currentTarget.getBoundingClientRect();
     const x = e.clientX - rect.left;
-    if (x < rect.width / 3) {
-        removeOut();
-    } else {
-        addOut();
-    }
+    if (x < rect.width / 3) removeOut();
+    else addOut();
 }
 
 function removeOut() {
@@ -146,31 +145,7 @@ function updateUI(shouldAnimate = false) {
     } else { render(); }
 }
 
-function confirmReset() {
-    if (confirm("Are you sure you want to start a new game? This will reset all scores, the timer, and the hit log.")) {
-        resetGame();
-        toggleDrawer(false);
-    }
-}
-
-function resetGame() {
-    game = { away: 0, home: 0, inning: 1, top: true, outs: 0 };
-    gameLog = [];
-    morphNumber('away', 0);
-    morphNumber('home', 0);
-    renderLog();
-    updateUI(true);
-    clearInterval(timer.interval);
-    timer.seconds = 0;
-    timer.running = false;
-    document.getElementById('timer-display').innerText = "00:00:00";
-}
-
-function shareGame() { 
-    const summary = generateGameRecap();
-    alert(summary);
-}
-
+// Timer Logic
 function toggleTimer() {
     if (timer.running) {
         clearInterval(timer.interval);
@@ -202,67 +177,57 @@ function updateTeamName(team, name) {
     label.innerText = name.trim() === "" ? (team === 'away' ? 'AWAY' : 'HOME') : name.toUpperCase();
 }
 
+function confirmReset() {
+    if (confirm("Are you sure you want to start a new game?")) {
+        game = { away: 0, home: 0, inning: 1, top: true, outs: 0 };
+        gameLog = [];
+        morphNumber('away', 0);
+        morphNumber('home', 0);
+        renderLog();
+        updateUI(true);
+        clearInterval(timer.interval);
+        timer.seconds = 0;
+        timer.running = false;
+        document.getElementById('timer-display').innerText = "00:00:00";
+        toggleDrawer(false);
+    }
+}
+
 // Hit Log Logic
 function handleHitTypeChange() {
     const hitType = document.getElementById('log-type').value;
     const locationSelect = document.getElementById('log-location');
-    
-    if (hitType === "walk" || hitType === "hbp" || hitType === "strikeout") {
-        locationSelect.selectedIndex = 0;
-        locationSelect.disabled = true;
-    } else {
-        locationSelect.disabled = false;
-    }
+    const nonSpatial = ["walk", "hbp", "strikeout"];
+    locationSelect.disabled = nonSpatial.includes(hitType);
+    if (locationSelect.disabled) locationSelect.selectedIndex = 0;
 }
 
 function addHitLog() {
     const playerName = document.getElementById('log-player').value.trim();
     const hitType = document.getElementById('log-type').value;
-    const locationSelect = document.getElementById('log-location');
-    const hitLocation = locationSelect.value;
+    const location = document.getElementById('log-location').value;
 
-    const noLocationRequired = ["walk", "hbp", "strikeout"];
+    if (!playerName || !hitType) return alert("Name and Hit Type required");
 
-    if (!playerName || !hitType || (!noLocationRequired.includes(hitType) && !hitLocation)) {
-        alert("Please provide a name, hit type, and location.");
-        return;
-    }
+    let logEntry = "";
+    if (hitType === "strikeout") logEntry = `${playerName} struck out.`;
+    else if (hitType === "walk") logEntry = `${playerName} walked.`;
+    else if (hitType === "hbp") logEntry = `${playerName} was hit by a pitch.`;
+    else if (hitType === "groundout") logEntry = `${playerName} grounded out to ${location}.`;
+    else if (hitType === "popout") logEntry = `${playerName} popped out to ${location}.`;
+    else if (hitType === "flyout") logEntry = `${playerName} flied out to ${location}.`;
+    else if (hitType === "lineout") logEntry = `${playerName} lined out to ${location}.`;
+    else if (hitType === "homerun") logEntry = `${playerName} hit a homerun to ${location}.`;
+    else if (hitType === "single") logEntry = `${playerName} hit a single to ${location}.`;
+    else if (hitType === "double") logEntry = `${playerName} hit a double to ${location}.`;
+    else if (hitType === "triple") logEntry = `${playerName} hit a triple to ${location}.`;
 
-    let logEntry = `${playerName} hit a ${hitType} to ${hitLocation}.`;
-
-    if (hitType === "strikeout") {
-        logEntry = `${playerName} struck out.`;
-    } else if (hitType === "walk") {
-        logEntry = `${playerName} walked.`;
-    } else if (hitType === "hbp") {
-        logEntry = `${playerName} was hit by a pitch.`;
-    } else if (hitType === "groundout") {
-        logEntry = `${playerName} grounded out to ${hitLocation}.`;
-    } else if (hitType === "popout") {
-        logEntry = `${playerName} popped out to ${hitLocation}.`;
-    } else if (hitType === "homerun") {
-        logEntry = `${playerName} hit a homerun to ${hitLocation}.`;
-    } else if (hitType === "single") {
-        logEntry = `${playerName} hit a single to ${hitLocation}.`;
-    } else if (hitType === "double") {
-        logEntry = `${playerName} hit a double to ${hitLocation}.`;
-    } else if (hitType === "triple") {
-        logEntry = `${playerName} hit a triple to ${hitLocation}.`;
-    }
-
-    const play = {
-        text: logEntry,
-        inning: game.inning,
-        top: game.top
-    };
-
-    gameLog.unshift(play);
+    gameLog.unshift({ text: logEntry, inning: game.inning, top: game.top });
     renderLog();
-
+    
     document.getElementById('log-player').value = "";
     document.getElementById('log-type').selectedIndex = 0;
-    locationSelect.selectedIndex = 0;
-    locationSelect.disabled = false;
+    document.getElementById('log-location').selectedIndex = 0;
 }
 
 function renderLog() {
@@ -271,7 +236,6 @@ function renderLog() {
         container.innerHTML = '<div class="log-empty">No plays recorded.</div>';
         return;
     }
-
     container.innerHTML = gameLog.map(play => `
         <div class="log-item">
             <div class="play-info">${play.text}</div>
@@ -280,10 +244,46 @@ function renderLog() {
     `).join('');
 }
 
-// Game Recap Logic
+// --- SHARING & ANNOUNCER RECAP FUNCTIONALITY ---
+
+function toggleShareMenu(event) {
+    event.stopPropagation();
+    document.getElementById('share-menu').classList.toggle('active');
+}
+
+document.addEventListener('click', () => {
+    document.getElementById('share-menu').classList.remove('active');
+});
+
+function shareTo(platform) {
+    let shareContent = "";
+    switch(platform) {
+        case 'copyGameRecap':
+            shareContent = generateGameRecap();
+            copyToClipboard(shareContent, "Full Recap Copied!");
+            break;
+        case 'generateSimpleRecap':
+            const h = document.getElementById("home-label").textContent;
+            const a = document.getElementById("away-label").textContent;
+            shareContent = `Current Score: ${a} ${game.away}, ${h} ${game.home} (${game.top ? 'Top' : 'Bottom'} ${game.inning})`;
+            copyToClipboard(shareContent, "Score Copied!");
+            break;
+        default:
+            alert(`Sharing to ${platform} coming soon!`);
+    }
+}
+
+function copyToClipboard(text, message) {
+    navigator.clipboard.writeText(text).then(() => {
+        const btn = document.querySelector('.share-toggle');
+        const originalContent = btn.innerHTML;
+        btn.innerHTML = `<span style="font-size:10px; font-family:sans-serif">COPIED!</span>`;
+        setTimeout(() => { btn.innerHTML = originalContent; }, 2000);
+    });
+}
+
 function getInningSuffix(n) {
-    const s = ["th", "st", "nd", "rd"];
-    const v = n % 100;
+    const s = ["th", "st", "nd", "rd"], v = n % 100;
     return n + (s[(v - 20) % 10] || s[v] || s[0]);
 }
 
@@ -313,22 +313,21 @@ function generateGameRecap() {
         ];
         recap = tieOutcomes[Math.floor(Math.random() * tieOutcomes.length)];
 
-        // Add inning and outs information for a tie
         let inningDescription;
         switch (game.outs) {
             case 0:
-                inningDescription = ` We're now in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, and the inning's just getting started with no outs.`;
+                inningDescription = `We're now in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, and the inning's just getting started with no outs.`;
                 break;
             case 1:
-                inningDescription = ` There's one out gone in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
+                inningDescription = `There's one out gone in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
                 break;
             case 2:
-                inningDescription = ` Two down, one to go in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
+                inningDescription = `Two down, one to go in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
                 break;
             default:
-                inningDescription = ` And that's the side retired! Time for a change.`;
+                inningDescription = `And that's the side retired! Time for a change.`;
         }
-        recap += inningDescription;
+        recap += " " + inningDescription;
         return recap;
     }
 
@@ -379,7 +378,7 @@ function generateGameRecap() {
     recap += `${scoreDescription} The scoreboard shows ${winningScore} to ${losingScore}, ${winningTeam} in the driver's seat.\n`;
 
     // Varying descriptions of the hit log
-    const filteredHitLogs = gameLog.map(log => log.text).filter(text => text.trim().length > 0);
+    const filteredHitLogs = gameLog.map(l => l.text).filter(text => text.trim().length > 0);
     if (filteredHitLogs.length > 0) {
         let playHighlights;
         switch (filteredHitLogs.length) {
@@ -407,19 +406,19 @@ function generateGameRecap() {
                 ];
                 playHighlights = manyHitOutcomes[Math.floor(Math.random() * manyHitOutcomes.length)];
         }
-        recap += '\n' + playHighlights + '\n';
-        recap += filteredHitLogs.join('\n') + '\n';
+        recap += "\n" + playHighlights + '\n';
+        recap += filteredHitLogs.slice(0, 5).join('\n') + '\n';
     } else {
         const quietOutcomes = [
             `Things have been pretty quiet, not much to write home about so far.`,
             `It's been a slow game, not a lot of action to report.`,
             `A quiet affair so far, with minimal highlights.`
         ];
-        recap += '\n' + quietOutcomes[Math.floor(Math.random() * quietOutcomes.length)] + '\n';
+        recap += "\n" + quietOutcomes[Math.floor(Math.random() * quietOutcomes.length)] + "\n";
     }
 
     // Varied inning and out descriptions
-    let inningDescription;
+    let finalInningDescription;
     switch (game.outs) {
         case 0:
             const noOutOutcomes = [
@@ -427,7 +426,7 @@ function generateGameRecap() {
                 `The ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning is underway, and there are no outs.`,
                 `Fresh inning here, ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, with no outs on the board.`
             ];
-            inningDescription = noOutOutcomes[Math.floor(Math.random() * noOutOutcomes.length)];
+            finalInningDescription = noOutOutcomes[Math.floor(Math.random() * noOutOutcomes.length)];
             break;
         case 1:
             const oneOutOutcomes = [
@@ -435,7 +434,7 @@ function generateGameRecap() {
                 `One out recorded in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
                 `First out of the inning in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`
             ];
-            inningDescription = oneOutOutcomes[Math.floor(Math.random() * oneOutOutcomes.length)];
+            finalInningDescription = oneOutOutcomes[Math.floor(Math.random() * oneOutOutcomes.length)];
             break;
         case 2:
             const twoOutOutcomes = [
@@ -443,7 +442,7 @@ function generateGameRecap() {
                 `Two outs now, in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
                 `We're down to the final out in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`
             ];
-            inningDescription = twoOutOutcomes[Math.floor(Math.random() * twoOutOutcomes.length)];
+            finalInningDescription = twoOutOutcomes[Math.floor(Math.random() * twoOutOutcomes.length)];
             break;
         default:
             const threeOutOutcomes = [
@@ -451,12 +450,12 @@ function generateGameRecap() {
                 `Three outs, and we're moving on to the next half-inning.`,
                 `That'll do it for the inning, three outs and a change of sides.`
             ];
-            inningDescription = threeOutOutcomes[Math.floor(Math.random() * threeOutOutcomes.length)];
+            finalInningDescription = threeOutOutcomes[Math.floor(Math.random() * threeOutOutcomes.length)];
     }
-    recap += `\n${inningDescription}`;
+    recap += `\n${finalInningDescription}`;
 
     return recap;
 }
 
-// Initial Call
+// Init
 updateUI();
