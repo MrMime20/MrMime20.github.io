@@ -166,7 +166,10 @@ function resetGame() {
     document.getElementById('timer-display').innerText = "00:00:00";
 }
 
-function shareGame() { console.log("Share clicked."); }
+function shareGame() { 
+    const summary = generateGameRecap();
+    alert(summary);
+}
 
 function toggleTimer() {
     if (timer.running) {
@@ -275,6 +278,184 @@ function renderLog() {
             <div class="play-meta">${play.top ? 'T' : 'B'}${play.inning}</div>
         </div>
     `).join('');
+}
+
+// Game Recap Logic
+function getInningSuffix(n) {
+    const s = ["th", "st", "nd", "rd"];
+    const v = n % 100;
+    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+}
+
+function generateGameRecap() {
+    let recap = "";
+    let homeTeamName = document.getElementById("home-label").textContent;
+    let awayTeamName = document.getElementById("away-label").textContent;
+    let runDifferential = Math.abs(game.home - game.away);
+    let winningTeam, losingTeam, winningScore, losingScore;
+
+    // Determine winning/losing teams and handle ties
+    if (game.home > game.away) {
+        winningTeam = homeTeamName;
+        losingTeam = awayTeamName;
+        winningScore = game.home;
+        losingScore = game.away;
+    } else if (game.away > game.home) {
+        winningTeam = awayTeamName;
+        losingTeam = homeTeamName;
+        winningScore = game.away;
+        losingScore = game.home;
+    } else {
+        const tieOutcomes = [
+            `Folks, we've got ourselves a deadlock. ${homeTeamName} and ${awayTeamName} are tied at ${game.home} runs apiece. It's anyone's game at this point.`,
+            `This one's a real seesaw battle! ${homeTeamName} and ${awayTeamName} are knotted up at ${game.home} runs.`,
+            `It's all square here. ${homeTeamName} and ${awayTeamName} are even at ${game.home} runs. What a contest!`
+        ];
+        recap = tieOutcomes[Math.floor(Math.random() * tieOutcomes.length)];
+
+        // Add inning and outs information for a tie
+        let inningDescription;
+        switch (game.outs) {
+            case 0:
+                inningDescription = ` We're now in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, and the inning's just getting started with no outs.`;
+                break;
+            case 1:
+                inningDescription = ` There's one out gone in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
+                break;
+            case 2:
+                inningDescription = ` Two down, one to go in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`;
+                break;
+            default:
+                inningDescription = ` And that's the side retired! Time for a change.`;
+        }
+        recap += inningDescription;
+        return recap;
+    }
+
+    // Varying descriptions of the score
+    let scoreDescription;
+    switch (runDifferential) {
+        case 1:
+            const oneRunOutcomes = [
+                `Talk about a close one! The ${winningTeam} are squeaking by the ${losingTeam} by just a run.`,
+                `It's a nail-biter! The ${winningTeam} are clinging to a one-run lead over the ${losingTeam}.`,
+                `Just a sliver of daylight! The ${winningTeam} lead the ${losingTeam} by a single run.`
+            ];
+            scoreDescription = oneRunOutcomes[Math.floor(Math.random() * oneRunOutcomes.length)];
+            break;
+        case 2:
+            const twoRunOutcomes = [
+                `The ${winningTeam} are holding a slight advantage, up by a couple of runs.`,
+                `A two-run cushion for the ${winningTeam} as they lead the ${losingTeam}.`,
+                `The ${winningTeam} are up by two, but this game is far from over.`
+            ];
+            scoreDescription = twoRunOutcomes[Math.floor(Math.random() * twoRunOutcomes.length)];
+            break;
+        case 3:
+            const threeRunOutcomes = [
+                `The ${winningTeam} have a bit of breathing room, leading by three.`,
+                `A three-run lead for the ${winningTeam}, but they can't afford to relax just yet.`,
+                `The ${winningTeam} are up by three, putting some distance between themselves and the ${losingTeam}.`
+            ];
+            scoreDescription = threeRunOutcomes[Math.floor(Math.random() * threeRunOutcomes.length)];
+            break;
+        case 4:
+            const fourRunOutcomes = [
+                `The ${winningTeam} are starting to pull away, leading by four runs.`,
+                `A solid four-run advantage for the ${winningTeam}, they're in control.`,
+                `The ${winningTeam} are extending their lead, now up by four runs.`
+            ];
+            scoreDescription = fourRunOutcomes[Math.floor(Math.random() * fourRunOutcomes.length)];
+            break;
+        default:
+            const blowoutOutcomes = [
+                `And it's a blowout! The ${winningTeam} are dominating, leading the ${losingTeam} by a whopping ${runDifferential} runs.`,
+                `This one's getting out of hand! The ${winningTeam} are crushing the ${losingTeam} by ${runDifferential} runs.`,
+                `It's a lopsided affair! The ${winningTeam} have a commanding ${runDifferential}-run lead.`,
+                `No contest here! The ${winningTeam} are absolutely dismantling the ${losingTeam} by ${runDifferential} runs.`
+            ];
+            scoreDescription = blowoutOutcomes[Math.floor(Math.random() * blowoutOutcomes.length)];
+    }
+    recap += `${scoreDescription} The scoreboard shows ${winningScore} to ${losingScore}, ${winningTeam} in the driver's seat.\n`;
+
+    // Varying descriptions of the hit log
+    const filteredHitLogs = gameLog.map(log => log.text).filter(text => text.trim().length > 0);
+    if (filteredHitLogs.length > 0) {
+        let playHighlights;
+        switch (filteredHitLogs.length) {
+            case 1:
+                const oneHitOutcomes = [
+                    `We did see one noteworthy hit:`,
+                    `Just one key moment to report:`,
+                    `The highlight so far:`
+                ];
+                playHighlights = oneHitOutcomes[Math.floor(Math.random() * oneHitOutcomes.length)];
+                break;
+            case 2:
+                const twoHitOutcomes = [
+                    `A couple of key moments to mention:`,
+                    `Two hits that stood out:`,
+                    `Here's a look at two significant hits:`
+                ];
+                playHighlights = twoHitOutcomes[Math.floor(Math.random() * twoHitOutcomes.length)];
+                break;
+            default:
+                const manyHitOutcomes = [
+                    `Alright, let's recap some of the action:`,
+                    `Let's take a look at the key hits:`,
+                    `Here's a rundown of the highlights:`
+                ];
+                playHighlights = manyHitOutcomes[Math.floor(Math.random() * manyHitOutcomes.length)];
+        }
+        recap += '\n' + playHighlights + '\n';
+        recap += filteredHitLogs.join('\n') + '\n';
+    } else {
+        const quietOutcomes = [
+            `Things have been pretty quiet, not much to write home about so far.`,
+            `It's been a slow game, not a lot of action to report.`,
+            `A quiet affair so far, with minimal highlights.`
+        ];
+        recap += '\n' + quietOutcomes[Math.floor(Math.random() * quietOutcomes.length)] + '\n';
+    }
+
+    // Varied inning and out descriptions
+    let inningDescription;
+    switch (game.outs) {
+        case 0:
+            const noOutOutcomes = [
+                `We're now in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, and the inning's just getting started.`,
+                `The ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning is underway, and there are no outs.`,
+                `Fresh inning here, ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning, with no outs on the board.`
+            ];
+            inningDescription = noOutOutcomes[Math.floor(Math.random() * noOutOutcomes.length)];
+            break;
+        case 1:
+            const oneOutOutcomes = [
+                `That's one gone in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
+                `One out recorded in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
+                `First out of the inning in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`
+            ];
+            inningDescription = oneOutOutcomes[Math.floor(Math.random() * oneOutOutcomes.length)];
+            break;
+        case 2:
+            const twoOutOutcomes = [
+                `Two down, one to go in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
+                `Two outs now, in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`,
+                `We're down to the final out in the ${game.top ? 'top' : 'bottom'} of the ${getInningSuffix(game.inning)} inning.`
+            ];
+            inningDescription = twoOutOutcomes[Math.floor(Math.random() * twoOutOutcomes.length)];
+            break;
+        default:
+            const threeOutOutcomes = [
+                `And that's the side retired! Time for a change.`,
+                `Three outs, and we're moving on to the next half-inning.`,
+                `That'll do it for the inning, three outs and a change of sides.`
+            ];
+            inningDescription = threeOutOutcomes[Math.floor(Math.random() * threeOutOutcomes.length)];
+    }
+    recap += `\n${inningDescription}`;
+
+    return recap;
 }
 
 // Initial Call
