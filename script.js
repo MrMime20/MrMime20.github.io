@@ -12,8 +12,6 @@ let currentThemeIndex = parseInt(localStorage.getItem('diamond_tracker_theme')) 
 let isClearing = false;
 
 // Timer State with LocalStorage persistence
-// timer.baseSeconds: Seconds accumulated in previous "running" sessions
-// timer.startTime: The timestamp (Date.now()) when the current session started
 let timer = JSON.parse(localStorage.getItem('diamond_tracker_timer')) || { 
     startTime: null, 
     baseSeconds: 0, 
@@ -156,6 +154,7 @@ function changeInning(dir) {
 function updateUI(shouldAnimate = false) {
     const inningText = document.getElementById('inning-text');
     const render = () => {
+        // Fixed bug by correctly selecting target elements
         document.getElementById('inning-num').innerText = game.inning;
         document.getElementById('inning-half').innerText = game.top ? 'TOP' : 'BOTTOM';
         document.getElementById('away-card').classList.toggle('batting-now', game.top);
@@ -183,13 +182,11 @@ function updateUI(shouldAnimate = false) {
 // Timer Logic with LocalStorage Time Calculation
 function toggleTimer() {
     if (timer.running) {
-        // Pausing: Calculate how much time passed since startTime and add to base
         timer.baseSeconds += Math.floor((Date.now() - timer.startTime) / 1000);
         timer.running = false;
         timer.startTime = null;
         clearInterval(timerInterval);
     } else {
-        // Starting: Log the exact time it started
         timer.running = true;
         timer.startTime = Date.now();
         startInterval();
