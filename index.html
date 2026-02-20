@@ -64,46 +64,6 @@
         </div>
     </div>
 
-    <div id="main-pitch-area" class="glass pitch-main-card hidden">
-        <div id="main-ui-simple" class="hidden">
-            <div class="main-pitch-row">
-                <span class="label">PITCHES</span>
-                <div class="pitch-goo-zone pitch-filter">
-                   <span id="main-simple-count" class="score-display pitch-val">0</span>
-                </div>
-                <div class="main-pitch-btns">
-                    <button class="m-btn" onclick="updateSimplePitch(-1)">−</button>
-                    <button class="p-btn" onclick="updateSimplePitch(1)">+</button>
-                </div>
-            </div>
-        </div>
-
-        <div id="main-ui-advanced" class="hidden">
-            <div class="adv-header">
-                <div class="adv-stat-box">
-                    <span class="label">TOTAL</span>
-                    <div class="pitch-goo-zone-sm pitch-filter">
-                        <span id="main-adv-total" class="score-display pitch-val-sm">0</span>
-                    </div>
-                </div>
-                <div class="adv-stat-box">
-                    <span class="label">STRIKE %</span>
-                    <span id="main-adv-percent" class="pitch-percent-val">0%</span>
-                </div>
-            </div>
-            <div class="adv-controls-row">
-                <div class="adv-btn-grp">
-                    <button onclick="updateAdvanced('balls', -1)">-B</button>
-                    <button class="p-btn" onclick="updateAdvanced('balls', 1)">+BALL (<span id="main-count-balls">0</span>)</button>
-                </div>
-                <div class="adv-btn-grp">
-                    <button onclick="updateAdvanced('strikes', -1)">-S</button>
-                    <button class="p-btn" onclick="updateAdvanced('strikes', 1)">+STRIKE (<span id="main-count-strikes">0</span>)</button>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div class="glass outs-card" onclick="handleOutClick(event)">
         <span class="label">OUTS</span>
         <div class="dots">
@@ -174,15 +134,6 @@
             <div class="mobile-input-stack">
                 <input type="text" id="edit-away" placeholder="Away Team Name" oninput="updateTeamName('away', this.value)">
                 <input type="text" id="edit-home" placeholder="Home Team Name" oninput="updateTeamName('home', this.value)">
-            </div>
-        </div>
-
-        <div class="tool-section">
-            <label class="label">PITCH COUNTER MODE</label>
-            <div class="mode-selector">
-                <button id="pitch-off" class="mode-btn active" onclick="setPitchMode('OFF')">OFF</button>
-                <button id="pitch-simple" class="mode-btn" onclick="setPitchMode('SIMPLE')">SIMPLE</button>
-                <button id="pitch-advanced" class="mode-btn" onclick="setPitchMode('ADVANCED')">ADVANCED</button>
             </div>
         </div>
 
