@@ -33,7 +33,7 @@ body {
 /* --- Navigation & Sharing --- */
 .theme-toggle, .share-wrapper, .timer-container {
     position: absolute; 
-    top: 20px; /* Aligned vertically */
+    top: 20px; 
     z-index: 110;
 }
 
