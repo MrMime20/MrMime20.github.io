@@ -31,17 +31,23 @@ body {
 @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
 
 /* --- Navigation & Sharing --- */
+.theme-toggle, .share-wrapper, .timer-container {
+    position: absolute; 
+    top: 20px; /* Aligned vertically */
+    z-index: 110;
+}
+
 .theme-toggle, .share-toggle, .timer-container {
-    position: absolute; top: 20px;
     background: rgba(255, 255, 255, 0.1); border: 1px solid rgba(255, 255, 255, 0.2);
     color: white; border-radius: 30px; height: 60px;
-    display: flex; align-items: center; justify-content: center; z-index: 100; backdrop-filter: blur(5px);
+    display: flex; align-items: center; justify-content: center; backdrop-filter: blur(5px);
     cursor: pointer;
 }
+
 .theme-toggle, .share-toggle { width: 60px; border-radius: 50%; }
 .theme-toggle { right: 20px; }
-.share-toggle { left: 0; position: relative; } /* Adjusted for wrapper */
-.share-wrapper { position: absolute; top: 20px; left: 20px; z-index: 110; }
+.share-wrapper { left: 20px; }
+.share-toggle { position: relative; }
 
 .share-menu {
     position: absolute; top: 70px; left: 0;
