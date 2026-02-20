@@ -1,6 +1,5 @@
 let game = { away: 0, home: 0, inning: 1, top: true, outs: 0 };
 let gameLog = [];
-let pitches = { mode: 'OFF', simple: 0, balls: 0, strikes: 0 };
 let currentThemeIndex = 0;
 let isClearing = false;
 
@@ -157,8 +156,6 @@ function confirmReset() {
 function resetGame() {
     game = { away: 0, home: 0, inning: 1, top: true, outs: 0 };
     gameLog = [];
-    pitches = { mode: 'OFF', simple: 0, balls: 0, strikes: 0 };
-    setPitchMode('OFF');
     morphNumber('away', 0);
     morphNumber('home', 0);
     renderLog();
@@ -200,38 +197,6 @@ function toggleDrawer(open) {
 function updateTeamName(team, name) {
     const label = document.getElementById(`${team}-label`);
     label.innerText = name.trim() === "" ? (team === 'away' ? 'AWAY' : 'HOME') : name.toUpperCase();
-}
-
-// Pitch Counter Logic
-function setPitchMode(mode) {
-    pitches.mode = mode;
-    ['OFF', 'SIMPLE', 'ADVANCED'].forEach(m => {
-        document.getElementById(`pitch-${m.toLowerCase()}`).classList.toggle('active', m === mode);
-    });
-    document.getElementById('main-pitch-area').classList.toggle('hidden', mode === 'OFF');
-    document.getElementById('main-ui-simple').classList.toggle('hidden', mode !== 'SIMPLE');
-    document.getElementById('main-ui-advanced').classList.toggle('hidden', mode !== 'ADVANCED');
-    refreshPitchUI();
-}
-
-function updateSimplePitch(val) {
-    pitches.simple = Math.max(0, pitches.simple + val);
-    refreshPitchUI();
-}
-
-function updateAdvanced(type, val) {
-    pitches[type] = Math.max(0, pitches[type] + val);
-    refreshPitchUI();
-}
-
-function refreshPitchUI() {
-    document.getElementById('main-simple-count').innerText = pitches.simple;
-    const total = pitches.balls + pitches.strikes;
-    const percent = total === 0 ? 0 : Math.round((pitches.strikes / total) * 100);
-    document.getElementById('main-count-balls').innerText = pitches.balls;
-    document.getElementById('main-count-strikes').innerText = pitches.strikes;
-    document.getElementById('main-adv-total').innerText = total;
-    document.getElementById('main-adv-percent').innerText = `${percent}%`;
 }
 
 // Hit Log Logic
