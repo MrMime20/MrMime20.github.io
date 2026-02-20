@@ -1,10 +1,32 @@
-let game = { away: 0, home: 0, inning: 1, top: true, outs: 0 };
-let gameLog = [];
-let currentThemeIndex = 0;
+// Initialize game state from localStorage or defaults
+let game = JSON.parse(localStorage.getItem('diamond_tracker_game')) || { 
+    away: 0, 
+    home: 0, 
+    inning: 1, 
+    top: true, 
+    outs: 0 
+};
+
+let gameLog = JSON.parse(localStorage.getItem('diamond_tracker_log')) || [];
+let currentThemeIndex = parseInt(localStorage.getItem('diamond_tracker_theme')) || 0;
 let isClearing = false;
 
-// Timer State
-let timer = { interval: null, seconds: 0, running: false };
+// Timer State with LocalStorage persistence
+// timer.baseSeconds: Seconds accumulated in previous "running" sessions
+// timer.startTime: The timestamp (Date.now()) when the current session started
+let timer = JSON.parse(localStorage.getItem('diamond_tracker_timer')) || { 
+    startTime: null, 
+    baseSeconds: 0, 
+    running: false 
+};
+let timerInterval = null;
+
+function saveAll() {
+    localStorage.setItem('diamond_tracker_game', JSON.stringify(game));
+    localStorage.setItem('diamond_tracker_log', JSON.stringify(gameLog));
+    localStorage.setItem('diamond_tracker_theme', currentThemeIndex);
+    localStorage.setItem('diamond_tracker_timer', JSON.stringify(timer));
+}
 
 const themes = [
     { name: "forest", bg: "#1a2e1a", glass: "rgba(0, 0, 0, 0.3)", accent: "#d4e09b", primary: "#3a5a40", btnText: "#fff" },
@@ -15,8 +37,7 @@ const themes = [
     { name: "slate", bg: "#1d2d44", glass: "rgba(13, 19, 33, 0.7)", accent: "#e6e4ce", primary: "#748cab", btnText: "#fff" }
 ];
 
-function cycleTheme() {
-    currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+function applyTheme() {
     const t = themes[currentThemeIndex];
     const root = document.documentElement;
     root.style.setProperty('--bg-color', t.bg);
@@ -26,6 +47,12 @@ function cycleTheme() {
     root.style.setProperty('--btn-text', t.btnText);
 }
 
+function cycleTheme() {
+    currentThemeIndex = (currentThemeIndex + 1) % themes.length;
+    applyTheme();
+    saveAll();
+}
+
 // Score & UI Morphing Logic
 function updateScore(team, val) {
     const oldVal = game[team];
@@ -33,6 +60,7 @@ function updateScore(team, val) {
     if (oldVal !== newVal) {
         game[team] = newVal;
         morphNumber(team, newVal);
+        saveAll();
     }
 }
 
@@ -81,6 +109,7 @@ function removeOut() {
     if (game.outs > 0) {
         game.outs--;
         updateUI();
+        saveAll();
     }
 }
 
@@ -88,6 +117,7 @@ function addOut() {
     if (isClearing || game.outs >= 3) return;
     game.outs++;
     updateUI();
+    saveAll();
     if (game.outs === 3) {
         isClearing = true;
         setTimeout(sequentialReset, 600);
@@ -104,7 +134,8 @@ function sequentialReset() {
             game.outs = 0;
             if (game.top) { game.top = false; } else { game.top = true; game.inning++; }
             isClearing = false;
-            updateUI(true); 
+            updateUI(true);
+            saveAll();
         }, 300);
     }, 400);
 }
@@ -119,6 +150,7 @@ function changeInning(dir) {
         else if (game.inning > 1) { game.top = false; game.inning--; }
     }
     updateUI(true); 
+    saveAll();
 }
 
 function updateUI(shouldAnimate = false) {
@@ -128,6 +160,9 @@ function updateUI(shouldAnimate = false) {
         document.getElementById('inning-half').innerText = game.top ? 'TOP' : 'BOTTOM';
         document.getElementById('away-card').classList.toggle('batting-now', game.top);
         document.getElementById('home-card').classList.toggle('batting-now', !game.top);
+        document.getElementById('away-score').innerText = game.away;
+        document.getElementById('home-score').innerText = game.home;
+        
         if (!isClearing) {
             document.querySelectorAll('.dot').forEach((d, i) => {
                 d.classList.toggle('active', i < game.outs);
@@ -145,24 +180,40 @@ function updateUI(shouldAnimate = false) {
     } else { render(); }
 }
 
-// Timer Logic
+// Timer Logic with LocalStorage Time Calculation
 function toggleTimer() {
     if (timer.running) {
-        clearInterval(timer.interval);
+        // Pausing: Calculate how much time passed since startTime and add to base
+        timer.baseSeconds += Math.floor((Date.now() - timer.startTime) / 1000);
         timer.running = false;
+        timer.startTime = null;
+        clearInterval(timerInterval);
     } else {
+        // Starting: Log the exact time it started
         timer.running = true;
-        timer.interval = setInterval(() => {
-            timer.seconds++;
-            updateTimerDisplay();
-        }, 1000);
+        timer.startTime = Date.now();
+        startInterval();
     }
+    saveAll();
+}
+
+function startInterval() {
+    clearInterval(timerInterval);
+    timerInterval = setInterval(() => {
+        updateTimerDisplay();
+    }, 1000);
 }
 
 function updateTimerDisplay() {
-    const h = Math.floor(timer.seconds / 3600);
-    const m = Math.floor((timer.seconds % 3600) / 60);
-    const s = timer.seconds % 60;
+    let totalSeconds = timer.baseSeconds;
+    if (timer.running && timer.startTime) {
+        const elapsedSinceStart = Math.floor((Date.now() - timer.startTime) / 1000);
+        totalSeconds += elapsedSinceStart;
+    }
+    
+    const h = Math.floor(totalSeconds / 3600);
+    const m = Math.floor((totalSeconds % 3600) / 60);
+    const s = totalSeconds % 60;
     const pad = (n) => n.toString().padStart(2, '0');
     document.getElementById('timer-display').innerText = `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
@@ -170,26 +221,39 @@ function updateTimerDisplay() {
 // Drawer & Team Names
 function toggleDrawer(open) {
     document.getElementById('drawer-overlay').classList.toggle('active', open);
+    if(open) {
+        document.getElementById('edit-away').value = localStorage.getItem('team_away') || "";
+        document.getElementById('edit-home').value = localStorage.getItem('team_home') || "";
+    }
 }
 
 function updateTeamName(team, name) {
     const label = document.getElementById(`${team}-label`);
     label.innerText = name.trim() === "" ? (team === 'away' ? 'AWAY' : 'HOME') : name.toUpperCase();
+    localStorage.setItem(`team_${team}`, name);
 }
 
 function confirmReset() {
     if (confirm("Are you sure you want to start a new game?")) {
+        localStorage.clear();
         game = { away: 0, home: 0, inning: 1, top: true, outs: 0 };
         gameLog = [];
+        timer = { startTime: null, baseSeconds: 0, running: false };
+        clearInterval(timerInterval);
+        
         morphNumber('away', 0);
         morphNumber('home', 0);
         renderLog();
         updateUI(true);
-        clearInterval(timer.interval);
-        timer.seconds = 0;
-        timer.running = false;
-        document.getElementById('timer-display').innerText = "00:00:00";
+        updateTimerDisplay();
+        
+        document.getElementById('edit-away').value = "";
+        document.getElementById('edit-home').value = "";
+        updateTeamName('away', "");
+        updateTeamName('home', "");
+        
         toggleDrawer(false);
+        saveAll();
     }
 }
 
@@ -224,6 +288,7 @@ function addHitLog() {
 
     gameLog.unshift({ text: logEntry, inning: game.inning, top: game.top });
     renderLog();
+    saveAll();
     
     document.getElementById('log-player').value = "";
     document.getElementById('log-type').selectedIndex = 0;
@@ -419,4 +484,14 @@ function generateGameRecap() {
     return recap;
 }
 
+// Initialize Page
+applyTheme();
 updateUI();
+renderLog();
+updateTimerDisplay();
+if (timer.running) startInterval();
+
+const savedAway = localStorage.getItem('team_away');
+const savedHome = localStorage.getItem('team_home');
+if (savedAway) updateTeamName('away', savedAway);
+if (savedHome) updateTeamName('home', savedHome);
