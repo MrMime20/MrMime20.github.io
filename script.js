@@ -11,7 +11,7 @@ let gameLog = JSON.parse(localStorage.getItem('diamond_tracker_log')) || [];
 let currentThemeIndex = parseInt(localStorage.getItem('diamond_tracker_theme')) || 0;
 let isClearing = false;
 
-// Timer State with LocalStorage persistence
+// Timer State
 let timer = JSON.parse(localStorage.getItem('diamond_tracker_timer')) || { 
     startTime: null, 
     baseSeconds: 0, 
@@ -19,20 +19,70 @@ let timer = JSON.parse(localStorage.getItem('diamond_tracker_timer')) || {
 };
 let timerInterval = null;
 
+// Wake Lock State
+let wakeLock = null;
+let wakeLockEnabled = localStorage.getItem('diamond_tracker_wakelock') === 'true';
+
+// Pitch Counter State
+let pitchData = JSON.parse(localStorage.getItem('diamond_tracker_pitch')) || { 
+    mode: 'off', 
+    simple: 0, 
+    balls: 0, 
+    strikes: 0 
+};
+
+// Touch tracking for swipe-to-close
+let touchStartY = 0;
+let touchEndY = 0;
+
 function saveAll() {
     localStorage.setItem('diamond_tracker_game', JSON.stringify(game));
     localStorage.setItem('diamond_tracker_log', JSON.stringify(gameLog));
     localStorage.setItem('diamond_tracker_theme', currentThemeIndex);
     localStorage.setItem('diamond_tracker_timer', JSON.stringify(timer));
+    localStorage.setItem('diamond_tracker_wakelock', wakeLockEnabled);
+    localStorage.setItem('diamond_tracker_pitch', JSON.stringify(pitchData));
 }
 
 const themes = [
-    { name: "forest", bg: "#1a2e1a", glass: "rgba(0, 0, 0, 0.3)", accent: "#d4e09b", primary: "#3a5a40", btnText: "#fff" },
-    { name: "crimson", bg: "#780000", glass: "rgba(0, 48, 73, 0.5)", accent: "#fdf0d5", primary: "#c1121f", btnText: "#fff" },
-    { name: "midnight", bg: "#0d1b2a", glass: "rgba(27, 38, 59, 0.6)", accent: "#e0e1dd", primary: "#415a77", btnText: "#fff" },
-    { name: "indigo", bg: "#7699d4", glass: "rgba(30, 30, 36, 0.5)", accent: "#f0f2ef", primary: "#232ed1", btnText: "#fff" },
-    { name: "graphite", bg: "#383535", glass: "rgba(20, 20, 20, 0.6)", accent: "#e6e4ce", primary: "#6d98ba", btnText: "#000" },
-    { name: "slate", bg: "#1d2d44", glass: "rgba(13, 19, 33, 0.7)", accent: "#e6e4ce", primary: "#748cab", btnText: "#fff" }
+    // The original Dark Blue (Slate) - Retained
+    { name: "slate", bg: "#1d2d44", glass: "rgba(13, 19, 33, 0.7)", accent: "#e6e4ce", primary: "#748cab", btnText: "#fff" },
+    
+    // 1. CLASSIC BALLPARK (Deep Grass & Chalk)
+    { name: "ballpark", bg: "#064e3b", glass: "rgba(0, 0, 0, 0.4)", accent: "#ecfdf5", primary: "#10b981", btnText: "#fff" },
+    
+    // 2. SUNSET LEAGUE (Deep Purple & Orange - Great for glare)
+    { name: "sunset", bg: "#2d0a31", glass: "rgba(0, 0, 0, 0.3)", accent: "#fb923c", primary: "#f97316", btnText: "#fff" },
+    
+    // 3. MIDNIGHT NEON (Black & Electric Cyan)
+    { name: "neon", bg: "#000000", glass: "rgba(20, 20, 20, 0.8)", accent: "#22d3ee", primary: "#0891b2", btnText: "#fff" },
+    
+    // 4. THE UMPIRE (High Contrast Black & White)
+    { name: "umpire", bg: "#0f172a", glass: "rgba(255, 255, 255, 0.1)", accent: "#ffffff", primary: "#475569", btnText: "#fff" },
+    
+    // 5. DIRTY DIAMOND (Earth Brown & Gold)
+    { name: "diamond", bg: "#451a03", glass: "rgba(0, 0, 0, 0.4)", accent: "#fde047", primary: "#a16207", btnText: "#fff" },
+    
+    // 6. POLARIZED OCEAN (Deep Teal & White)
+    { name: "ocean", bg: "#164e63", glass: "rgba(8, 51, 68, 0.6)", accent: "#cffafe", primary: "#22d3ee", btnText: "#000" },
+    
+    // 7. RETRO TURF (Bright Green & Navy)
+    { name: "retro", bg: "#1e3a8a", glass: "rgba(30, 58, 138, 0.5)", accent: "#4ade80", primary: "#166534", btnText: "#fff" },
+    
+    // 8. RED ZONE (Deep Maroon & Bright Red)
+    { name: "redzone", bg: "#450a0a", glass: "rgba(0, 0, 0, 0.4)", accent: "#f87171", primary: "#b91c1c", btnText: "#fff" },
+    
+    // 9. VOLT EDGE (Charcoal & Neon Lime - Best for extreme sun)
+    { name: "volt", bg: "#171717", glass: "rgba(0, 0, 0, 0.6)", accent: "#bef264", primary: "#65a30d", btnText: "#000" },
+    
+    // 10. ROYAL GOLD (Navy & Yellow Gold)
+    { name: "royal", bg: "#1e1b4b", glass: "rgba(0, 0, 0, 0.3)", accent: "#fbbf24", primary: "#4338ca", btnText: "#fff" },
+    
+    // 11. CYBERPUNK (Deep Violet & Hot Pink)
+    { name: "cyber", bg: "#2e1065", glass: "rgba(0, 0, 0, 0.4)", accent: "#f472b6", primary: "#db2777", btnText: "#fff" },
+    
+    // 12. STEEL CITY (Steel Grey & High-Vis Yellow)
+    { name: "steel", bg: "#262626", glass: "rgba(255, 255, 255, 0.05)", accent: "#fbbf24", primary: "#525252", btnText: "#fff" }
 ];
 
 function applyTheme() {
@@ -51,7 +101,6 @@ function cycleTheme() {
     saveAll();
 }
 
-// Score & UI Morphing Logic
 function updateScore(team, val) {
     const oldVal = game[team];
     const newVal = Math.max(0, game[team] + val);
@@ -75,14 +124,14 @@ function morphNumber(team, newVal) {
     
     const newDisplay = document.createElement('div');
     newDisplay.className = 'score-display enter';
-    newDisplay.id = `${team}-score`; // Maintain ID for render function
+    newDisplay.id = `${team}-score`; 
     newDisplay.innerText = newVal;
     zone.appendChild(newDisplay);
     
     setTimeout(() => {
         if (oldDisplay) {
             oldDisplay.classList.add('exit');
-            oldDisplay.removeAttribute('id'); // Remove ID so only one exists
+            oldDisplay.removeAttribute('id'); 
         }
         newDisplay.classList.remove('enter');
     }, 50);
@@ -104,7 +153,6 @@ function animateBlur(element, start, end, duration) {
     requestAnimationFrame(step);
 }
 
-// Inning & Out Logic
 function handleOutClick(e) {
     if (isClearing) return;
     const rect = e.currentTarget.getBoundingClientRect();
@@ -197,7 +245,6 @@ function updateUI(shouldAnimate = false) {
     } else { render(); }
 }
 
-// Timer Logic
 function toggleTimer() {
     if (timer.running) {
         timer.baseSeconds += Math.floor((Date.now() - timer.startTime) / 1000);
@@ -210,6 +257,15 @@ function toggleTimer() {
         startInterval();
     }
     saveAll();
+}
+
+function resetTimer() {
+    if (confirm("Reset the game timer to zero?")) {
+        timer = { startTime: null, baseSeconds: 0, running: false };
+        if (timerInterval) clearInterval(timerInterval);
+        updateTimerDisplay();
+        saveAll();
+    }
 }
 
 function startInterval() {
@@ -225,7 +281,6 @@ function updateTimerDisplay() {
         const elapsedSinceStart = Math.floor((Date.now() - timer.startTime) / 1000);
         totalSeconds += elapsedSinceStart;
     }
-    
     const h = Math.floor(totalSeconds / 3600);
     const m = Math.floor((totalSeconds % 3600) / 60);
     const s = totalSeconds % 60;
@@ -234,7 +289,92 @@ function updateTimerDisplay() {
     if (display) display.innerText = `${pad(h)}:${pad(m)}:${pad(s)}`;
 }
 
-// Drawer & Team Names
+async function requestWakeLock() {
+    if ('wakeLock' in navigator) {
+        try {
+            wakeLock = await navigator.wakeLock.request('screen');
+            updateWakeLockUI(true);
+        } catch (err) {
+            wakeLockEnabled = false;
+            updateWakeLockUI(false);
+        }
+    }
+}
+
+async function releaseWakeLock() {
+    if (wakeLock) {
+        await wakeLock.release();
+        wakeLock = null;
+        updateWakeLockUI(false);
+    }
+}
+
+function toggleWakeLock() {
+    wakeLockEnabled = !wakeLockEnabled;
+    if (wakeLockEnabled) requestWakeLock();
+    else releaseWakeLock();
+    saveAll();
+}
+
+function updateWakeLockUI(isActive) {
+    const btn = document.getElementById('wakelock-btn');
+    const icon = document.getElementById('lock-icon');
+    if (!btn || !icon) return;
+    if (isActive) {
+        btn.classList.add('active');
+        icon.innerHTML = '<path d="M18 8h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zm-6 9c-1.1 0-2-.9-2-2s.9-2 2-2 2 .9 2 2-.9 2-2 2zm3.1-9H8.9V6c0-1.71 1.39-3.1 3.1-3.1 1.71 0 3.1 1.39 3.1 3.1v2z"/>';
+    } else {
+        btn.classList.remove('active');
+        icon.innerHTML = '<path d="M12 17c1.1 0 2-.9 2-2s-.9-2-2-2-2 .9-2 2 .9 2 2 2zm6-9h-1V6c0-2.76-2.24-5-5-5S7 3.24 7 6v2H6c-1.1 0-2 .9-2 2v10c0 1.1.9 2 2 2h12c1.1 0 2-.9 2-2V10c0-1.1-.9-2-2-2zM9 6c0-1.66 1.34-3 3-3s3 1.34 3 3v2H9V6z"/>';
+    }
+}
+
+function togglePitchMode() {
+    if (pitchData.mode === 'off') pitchData.mode = 'simple';
+    else if (pitchData.mode === 'simple') pitchData.mode = 'advanced';
+    else pitchData.mode = 'off';
+    renderPitchUI();
+    saveAll();
+}
+
+function updatePitch(type, val) {
+    pitchData[type] = Math.max(0, pitchData[type] + val);
+    renderPitchUI();
+    saveAll();
+}
+
+function renderPitchUI() {
+    const card = document.getElementById('pitch-card');
+    const simpleView = document.getElementById('pitch-simple');
+    const advView = document.getElementById('pitch-advanced');
+    const toggleBtn = document.getElementById('pitch-toggle-btn');
+    const modeIndicator = document.getElementById('pitch-mode-indicator');
+    if (pitchData.mode === 'off') {
+        card.style.display = 'none';
+        toggleBtn.classList.remove('active');
+        modeIndicator.innerText = 'OFF';
+    } else {
+        card.style.display = 'block';
+        toggleBtn.classList.add('active');
+        if (pitchData.mode === 'simple') {
+            modeIndicator.innerText = 'SMP';
+            simpleView.style.display = 'block';
+            advView.style.display = 'none';
+            document.getElementById('simple-pitch-count').innerText = pitchData.simple;
+        } else {
+            modeIndicator.innerText = 'ADV';
+            simpleView.style.display = 'none';
+            advView.style.display = 'block';
+            document.getElementById('adv-balls').innerText = pitchData.balls;
+            document.getElementById('adv-strikes').innerText = pitchData.strikes;
+            const total = pitchData.balls + pitchData.strikes;
+            document.getElementById('adv-total').innerText = total;
+            let pct = total > 0 ? Math.round((pitchData.strikes / total) * 100) : 0;
+            document.getElementById('adv-percent').innerText = pct + '%';
+        }
+    }
+}
+
 function toggleDrawer(open) {
     const drawer = document.getElementById('drawer-overlay');
     if (!drawer) return;
@@ -243,6 +383,17 @@ function toggleDrawer(open) {
         document.getElementById('edit-away').value = localStorage.getItem('team_away') || "";
         document.getElementById('edit-home').value = localStorage.getItem('team_home') || "";
     }
+}
+
+function setupSwipeToClose() {
+    const drawerContent = document.querySelector('.drawer-content');
+    if (!drawerContent) return;
+    drawerContent.addEventListener('touchstart', (e) => { touchStartY = e.touches[0].clientY; }, { passive: true });
+    drawerContent.addEventListener('touchend', (e) => { touchEndY = e.changedTouches[0].clientY; handleSwipeGesture(); }, { passive: true });
+}
+
+function handleSwipeGesture() {
+    if (touchEndY - touchStartY > 100) toggleDrawer(false);
 }
 
 function updateTeamName(team, name) {
@@ -257,25 +408,24 @@ function confirmReset() {
         game = { away: 0, home: 0, inning: 1, top: true, outs: 0 };
         gameLog = [];
         timer = { startTime: null, baseSeconds: 0, running: false };
+        pitchData = { mode: pitchData.mode, simple: 0, balls: 0, strikes: 0 };
         clearInterval(timerInterval);
-        
         morphNumber('away', 0);
         morphNumber('home', 0);
         renderLog();
         updateUI(true);
         updateTimerDisplay();
-        
+        updateWakeLockUI(false);
+        renderPitchUI();
         document.getElementById('edit-away').value = "";
         document.getElementById('edit-home').value = "";
         updateTeamName('away', "");
         updateTeamName('home', "");
-        
         toggleDrawer(false);
         saveAll();
     }
 }
 
-// Hit Log Logic
 function handleHitTypeChange() {
     const hitType = document.getElementById('log-type').value;
     const locationSelect = document.getElementById('log-location');
@@ -288,9 +438,7 @@ function addHitLog() {
     const playerName = document.getElementById('log-player').value.trim();
     const hitType = document.getElementById('log-type').value;
     const location = document.getElementById('log-location').value;
-
     if (!playerName || !hitType) return alert("Name and Hit Type required");
-
     let logEntry = "";
     if (hitType === "strikeout") logEntry = `${playerName} struck out.`;
     else if (hitType === "walk") logEntry = `${playerName} walked.`;
@@ -303,11 +451,9 @@ function addHitLog() {
     else if (hitType === "single") logEntry = `${playerName} hit a single to ${location}.`;
     else if (hitType === "double") logEntry = `${playerName} hit a double to ${location}.`;
     else if (hitType === "triple") logEntry = `${playerName} hit a triple to ${location}.`;
-
     gameLog.unshift({ text: logEntry, inning: game.inning, top: game.top });
     renderLog();
     saveAll();
-    
     document.getElementById('log-player').value = "";
     document.getElementById('log-type').selectedIndex = 0;
     document.getElementById('log-location').selectedIndex = 0;
@@ -328,7 +474,6 @@ function renderLog() {
     `).join('');
 }
 
-// Sharing functions
 function toggleShareMenu(event) {
     event.stopPropagation();
     const menu = document.getElementById('share-menu');
@@ -339,7 +484,6 @@ function shareTo(platform) {
     const h = document.getElementById("home-label").textContent;
     const a = document.getElementById("away-label").textContent;
     const scoreText = `Current Score: ${a} ${game.away}, ${h} ${game.home} (${game.top ? 'Top' : 'Bottom'} ${game.inning})`;
-    
     switch(platform) {
         case 'text': window.location.href = `sms:?&body=${encodeURIComponent(scoreText)}`; break;
         case 'email': window.location.href = `mailto:?subject=Baseball Update&body=${encodeURIComponent(scoreText)}`; break;
@@ -359,32 +503,187 @@ function copyToClipboard(text, message) {
     });
 }
 
-function getInningSuffix(n) {
-    const s = ["th", "st", "nd", "rd"], v = n % 100;
-    return n + (s[(v - 20) % 10] || s[v] || s[0]);
+// --- MEGA ORGANIC RECAP LOGIC ---
+
+function getInningSuffix(inning) {
+    if (inning % 10 === 1 && inning % 100 !== 11) return inning + "st";
+    if (inning % 10 === 2 && inning % 100 !== 12) return inning + "nd";
+    if (inning % 10 === 3 && inning % 100 !== 13) return inning + "rd";
+    return inning + "th";
 }
 
 function generateGameRecap() {
-    let homeTeamName = document.getElementById("home-label").textContent;
-    let awayTeamName = document.getElementById("away-label").textContent;
-    let recap = `${awayTeamName} vs ${homeTeamName}\nScore: ${game.away} - ${game.home}\nInning: ${game.top ? 'Top' : 'Bottom'} ${game.inning}\n\nRecent Plays:\n`;
-    recap += gameLog.slice(0, 5).map(l => l.text).join('\n');
+    const homeTeamName = document.getElementById("home-label").textContent;
+    const awayTeamName = document.getElementById("away-label").textContent;
+    const homeScore = game.home;
+    const awayScore = game.away;
+    const inning = game.inning;
+    const topOfInning = game.top;
+    const outs = game.outs;
+    const hitLogs = gameLog.map(l => l.text);
+    
+    let recap = "";
+    const runDifferential = Math.abs(homeScore - awayScore);
+    let winningTeam, losingTeam, winningScore, losingScore;
+
+    // Determine winning/losing teams
+    if (homeScore > awayScore) {
+        winningTeam = homeTeamName; losingTeam = awayTeamName;
+        winningScore = homeScore; losingScore = awayScore;
+    } else if (awayScore > homeScore) {
+        winningTeam = awayTeamName; losingTeam = homeTeamName;
+        winningScore = awayScore; losingScore = homeScore;
+    }
+
+    // 1. INTRO / SCORE SUMMARY
+    if (homeScore === awayScore) {
+        const tieOutcomes = [
+            `Folks, we've got ourselves a deadlock. ${homeTeamName} and ${awayTeamName} are tied at ${homeScore} runs apiece.`,
+            `This one's a real seesaw battle! Things are knotted up at ${homeScore}.`,
+            `It's all square here. Neither side is giving an inch with the score at ${homeScore} to ${homeScore}.`,
+            `We're in the thick of a classic pitcher's duel, tied up at ${homeScore}.`,
+            `A high-tension stalemate! Both squads have put up ${homeScore} runs so far.`
+        ];
+        recap = tieOutcomes[Math.floor(Math.random() * tieOutcomes.length)] + " ";
+    } else {
+        let scoreDescription;
+        if (runDifferential === 1) {
+            scoreDescription = [
+                `Talk about a close one! The ${winningTeam} are squeaking by the ${losingTeam} by just a run.`,
+                `It's a nail-biter! The ${winningTeam} are clinging to a one-run lead.`,
+                `Just a sliver of daylight! The ${winningTeam} lead ${losingTeam} by a single run.`,
+                `The tension is palpable as the ${winningTeam} hold onto a slim 1-run advantage.`
+            ][Math.floor(Math.random() * 4)];
+        } else if (runDifferential === 2) {
+            scoreDescription = [
+                `The ${winningTeam} are holding a slight advantage, up by a couple of runs.`,
+                `A two-run cushion for the ${winningTeam} as they lead the ${losingTeam}.`,
+                `The ${winningTeam} are up by two, but this game is far from over.`,
+                `Two runs separate these teams, with the ${winningTeam} currently in front.`
+            ][Math.floor(Math.random() * 4)];
+        } else if (runDifferential <= 4) {
+            scoreDescription = [
+                `The ${winningTeam} have a bit of breathing room, leading by ${runDifferential}.`,
+                `A solid advantage for the ${winningTeam}, they're in control of this contest.`,
+                `The ${winningTeam} are extending their lead, now up by ${runDifferential} runs.`,
+                `The ${losingTeam} have some work to do, trailing the ${winningTeam} by ${runDifferential}.`
+            ][Math.floor(Math.random() * 4)];
+        } else {
+            scoreDescription = [
+                `And it's a blowout! The ${winningTeam} are dominating, leading by a whopping ${runDifferential} runs.`,
+                `This one's getting out of hand! The ${winningTeam} are crushing the ${losingTeam}.`,
+                `It's a lopsided affair! The ${winningTeam} have a commanding ${runDifferential}-run lead.`,
+                `The ${winningTeam} are absolutely dismantling the competition today.`
+            ][Math.floor(Math.random() * 4)];
+        }
+        recap = `${scoreDescription} The scoreboard shows ${winningScore} to ${losingScore}.\n`;
+    }
+
+    // 2. HIT LOG / HIGHLIGHTS
+    const filteredHitLogs = hitLogs.filter(log => log.trim().length > 0).slice(0, 4);
+    if (filteredHitLogs.length > 0) {
+        const highlightIntros = [
+            `Alright, let's recap some of the action:`,
+            `Here's a look at the key moments so far:`,
+            `Some significant plays to report:`,
+            `The highlight reel is starting to fill up:`,
+            `Looking back at the recent plays:`
+        ];
+        recap += `\n` + highlightIntros[Math.floor(Math.random() * highlightIntros.length)] + `\n`;
+        recap += filteredHitLogs.map(log => ` - ${log}`).join('\n') + `\n`;
+    } else {
+        recap += `\nThings have been pretty quiet on the stat sheet, with minimal highlights to report.\n`;
+    }
+
+    // 3. INNING & OUTS (THE SITUATION)
+    const suffix = getInningSuffix(inning);
+    const half = topOfInning ? 'top' : 'bottom';
+    let inningDescription;
+
+    switch (outs) {
+        case 0:
+            inningDescription = [
+                `We're now in the ${half} of the ${suffix}, and the inning's just getting started with no outs.`,
+                `Fresh inning here, ${half} of the ${suffix}, with a clean slate and no outs.`,
+                `The ${half} of the ${suffix} is underway, nobody out yet.`
+            ][Math.floor(Math.random() * 3)];
+            break;
+        case 1:
+            inningDescription = [
+                `There's one out recorded in the ${half} of the ${suffix}.`,
+                `One down in the ${half} of the ${suffix}, as the defense looks for two more.`,
+                `The ${half} of the ${suffix} continues with one away.`
+            ][Math.floor(Math.random() * 3)];
+            break;
+        case 2:
+            inningDescription = [
+                `Two down, one to go in the ${half} of the ${suffix}.`,
+                `We're down to the final out of the ${half} in the ${suffix} inning.`,
+                `Two outs on the board, ${winningTeam ? winningTeam : 'the offense'} is looking for a two-out rally.`
+            ][Math.floor(Math.random() * 3)];
+            break;
+        default:
+            inningDescription = `And that's the side retired! Time for a change.`;
+    }
+    recap += `\n${inningDescription}`;
+
+    // 4. CLOSING HOOK
+    const closers = [
+        ` Stay tuned, there's plenty of baseball left to be played!`,
+        ` Anything can happen in this game.`,
+        ` We'll see if the ${losingTeam || 'trailing side'} can mount a comeback.`,
+        ` What a contest we have on our hands today!`,
+        ` It's a beautiful day for baseball, and this game is proving why.`
+    ];
+    recap += closers[Math.floor(Math.random() * closers.length)];
+
     return recap;
 }
 
-// Initial Run after DOM is ready
+// --- AUDIO LOGIC ---
+
+function playBuns() {
+    const trumpet = document.getElementById('audio-trumpet');
+    const randomAudios = [
+        document.getElementById('audio-rand-1'),
+        document.getElementById('audio-rand-2'),
+        document.getElementById('audio-rand-3'),
+        document.getElementById('audio-rand-4'),
+        document.getElementById('audio-rand-5'),
+        document.getElementById('audio-rand-6'),
+        document.getElementById('audio-rand-7'),
+        document.getElementById('audio-rand-8'),
+        document.getElementById('audio-rand-9'),
+        document.getElementById('audio-rand-10')
+    ];
+    if (!trumpet) return;
+    trumpet.currentTime = 0;
+    trumpet.play().catch(e => console.log("Trumpet failed", e));
+    trumpet.onended = () => {
+        const valid = randomAudios.filter(a => a && a.src && !a.src.includes('PASTE_LINK'));
+        if (valid.length > 0) {
+            const selected = valid[Math.floor(Math.random() * valid.length)];
+            selected.currentTime = 0;
+            selected.play().catch(e => console.log("Dialogue failed", e));
+        }
+    };
+}
+
+// Initial Run
 document.addEventListener('DOMContentLoaded', () => {
     applyTheme();
     updateUI();
     renderLog();
     updateTimerDisplay();
+    renderPitchUI();
+    setupSwipeToClose();
+    if (wakeLockEnabled) requestWakeLock();
+    else updateWakeLockUI(false);
     if (timer.running) startInterval();
-
     const savedAway = localStorage.getItem('team_away');
     const savedHome = localStorage.getItem('team_home');
     if (savedAway) updateTeamName('away', savedAway);
     if (savedHome) updateTeamName('home', savedHome);
-
     document.addEventListener('click', () => {
         const menu = document.getElementById('share-menu');
         if (menu) menu.classList.remove('active');
