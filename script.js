@@ -642,12 +642,15 @@ function generateGameRecap() {
 
 // --- AUDIO LOGIC ---
 
+// --- UPDATED AUDIO & BUN RAIN LOGIC ---
+
+let rainInterval = null;
+
 function playBuns() {
     const trumpet = document.getElementById('audio-trumpet');
     const randomAudios = [
         document.getElementById('audio-rand-1'),
-        document.getElementById('audio-rand-2'),
-        document.getElementById('audio-rand-3'),
+        document.getElementById('audio-rand-3'), // Fixed: rand-2 was missing in your HTML
         document.getElementById('audio-rand-4'),
         document.getElementById('audio-rand-5'),
         document.getElementById('audio-rand-6'),
@@ -656,17 +659,58 @@ function playBuns() {
         document.getElementById('audio-rand-9'),
         document.getElementById('audio-rand-10')
     ];
+
     if (!trumpet) return;
+
+    // Start raining buns
+    startBunRain();
+
     trumpet.currentTime = 0;
     trumpet.play().catch(e => console.log("Trumpet failed", e));
+
     trumpet.onended = () => {
-        const valid = randomAudios.filter(a => a && a.src && !a.src.includes('PASTE_LINK'));
+        const valid = randomAudios.filter(a => a && a.src && a.src.trim() !== "");
         if (valid.length > 0) {
             const selected = valid[Math.floor(Math.random() * valid.length)];
             selected.currentTime = 0;
             selected.play().catch(e => console.log("Dialogue failed", e));
+            
+            // Stop raining only after the dialogue ends
+            selected.onended = () => stopBunRain();
+        } else {
+            // If no dialogue, stop after trumpet
+            stopBunRain();
         }
     };
+}
+
+function startBunRain() {
+    if (rainInterval) return; // Prevent multiple intervals
+    rainInterval = setInterval(() => {
+        const bun = document.createElement('div');
+        bun.className = 'bun-drop';
+        bun.style.backgroundImage = "url('https://codehs.com/uploads/79411300e7ae3cb0766885493066194d')";
+        
+        // Randomize position and speed
+        const startX = Math.random() * window.innerWidth;
+        const duration = Math.random() * 2 + 2; // 2-4 seconds
+        const size = Math.random() * 40 + 40; // 40-80px
+        
+        bun.style.left = `${startX}px`;
+        bun.style.width = `${size}px`;
+        bun.style.height = `${size}px`;
+        bun.style.animationDuration = `${duration}s`;
+        
+        document.body.appendChild(bun);
+        
+        // Cleanup element after animation
+        setTimeout(() => bun.remove(), duration * 1000);
+    }, 150); // Drop a bun every 150ms
+}
+
+function stopBunRain() {
+    clearInterval(rainInterval);
+    rainInterval = null;
 }
 
 // Initial Run
